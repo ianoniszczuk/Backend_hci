@@ -1,3 +1,5 @@
+//TODO : AGREGAR DEVOLUCION DE JWT
+
 const validator = require('validator');
 
 const pool = require('../config/db/index.js');

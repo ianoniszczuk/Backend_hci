@@ -1,6 +1,7 @@
 const express = require('express')
 require('dotenv').config()
-const routes = require('./src/routes/routes.js')
+const authRoutes = require('./src/routes/authRoutes.js')
+const transactionRoutes = require('./src/routes/transactionRoutes.js')
 
 const app = express()
 const port = process.env.PORT || 3000
@@ -9,7 +10,9 @@ const cors = require('cors')
 app.use(cors())
 app.use(express.json())
 
-app.use(routes)
+app.use(authRoutes)
+
+app.use(transactionRoutes)
 
 app.get('/', (req, res) => {
   res.send('Hello World!')

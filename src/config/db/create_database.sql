@@ -14,3 +14,13 @@ CREATE TABLE transacciones (
   fecha TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   descripcion TEXT
 );
+
+CREATE TABLE tarjeta (
+    usuario_id INT NOT NULL REFERENCES usuarios(id) ON DELETE CASCADE,
+    numero VARCHAR(16) NOT NULL PRIMARY KEY,
+    nombre_titular VARCHAR(100) NOT NULL,
+    fecha_vencimiento VARCHAR(7) NOT NULL,
+    tipo_tarjeta VARCHAR (50),
+    documento_titular VARCHAR(20),
+    fecha_creacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);

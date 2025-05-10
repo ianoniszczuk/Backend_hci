@@ -2,9 +2,9 @@
 
 const pool = require('../config/db')
 
-const transferFunds = async (req,res) => {
+const transferFunds = async (req, res) => {
 
-    const {senderId, receiverId, amount,description} = req.body
+    const { senderCbu, receiverCbu, amount, description } = req.body
 
     console.log(req.body);
 
@@ -13,30 +13,42 @@ const transferFunds = async (req,res) => {
 
         await pool.query('BEGIN');
 
-        const sender = await pool.query('SELECT saldo FROM usuarios WHERE id = $1',[senderId]);
-        if(sender.rows.length === 0){
-            return res.status(404).json({error: 'Usuario no encontrado'});
+        const senderRes = await pool.query('SELECT id, saldo FROM usuarios WHERE cbu = $1', [senderCbu]);
+        if (senderRes.rows.length === 0) {
+            return res.status(404).json({ error: 'CBU del emisor no encontrado' });
         }
-        if(sender.rows[0].saldo < amount){
-            return res.status(400).json({error: 'Saldo insuficiente'}); 
+        const senderId = senderRes.rows[0].id;
+
+        const receiverRes = await pool.query('SELECT id FROM usuarios WHERE cbu = $1', [receiverCbu]);
+        if (receiverRes.rows.length === 0) {
+            return res.status(404).json({ error: 'CBU del receptor no encontrado' });
+        }
+        const receiverId = receiverRes.rows[0].id;
+
+        const sender = await pool.query('SELECT saldo FROM usuarios WHERE id = $1', [senderId]);
+        if (sender.rows.length === 0) {
+            return res.status(404).json({ error: 'Usuario no encontrado' });
+        }
+        if (sender.rows[0].saldo < amount) {
+            return res.status(400).json({ error: 'Saldo insuficiente' });
         }
 
-        await pool.query('UPDATE usuarios SET saldo = saldo - $1  WHERE id = $2',[amount,senderId]);
+        await pool.query('UPDATE usuarios SET saldo = saldo - $1  WHERE id = $2', [amount, senderId]);
 
-        await pool.query('UPDATE usuarios SET saldo = saldo + $1  WHERE id = $2',[amount,receiverId]);
+        await pool.query('UPDATE usuarios SET saldo = saldo + $1  WHERE id = $2', [amount, receiverId]);
 
         await pool.query(
             'INSERT INTO transacciones (usuario_id_emisor,usuario_id_receptor,monto,descripcion) VALUES ($1,$2,$3,$4)',
-            [senderId,receiverId,amount,description]
+            [senderId, receiverId, amount, description]
         );
 
         await pool.query('COMMIT');
 
-        return res.status(200).json({mesagge: 'Transferencia realizada con EXITO'})
-    } catch(error) {
+        return res.status(200).json({ mesagge: 'Transferencia realizada con EXITO' })
+    } catch (error) {
         await pool.query('ROLLBACK');
-        console.error('Error al hacer la transferencia: ',error);
-        return res.status(500).json({error : 'Error al realizar la transferencia'});
+        console.error('Error al hacer la transferencia: ', error);
+        return res.status(500).json({ error: 'Error al realizar la transferencia' });
     }
 
 
@@ -46,9 +58,18 @@ const getLastTransactions = async (req, res) => {
     const { userId } = req.params;  // Obtener userId desde los parámetros de la URL
 
     try {
+
+        const check = await pool.query(
+            'SELECT * FROM usuarios WHERE id = $1', [userId]
+        );
+
+        if (check.rows.length == 0) {
+            return res.status(404).json({ error: 'Usuario no encontrado' });
+        }
         // Consulta para obtener las últimas transacciones (enviadas y recibidas)
-        const result = await pool.query(
-            `SELECT 
+        else {
+            const result = await pool.query(
+                `SELECT 
                 t.id,
                 t.monto,
                 t.descripcion,
@@ -63,28 +84,32 @@ const getLastTransactions = async (req, res) => {
             WHERE t.usuario_id_emisor = $1 OR t.usuario_id_receptor = $1
             ORDER BY t.fecha DESC
             LIMIT 10`,
-            [userId]
-        );
+                [userId]
+            );
 
-        if(result.rows.length == 0){
-            return res.status(404).json({error: 'Usuario no encontrado'});
+
+
+            if (result.rows.length == 0) {
+                return [];
+            }
+
+            // Formatear las transacciones para la respuesta
+            const transactions = result.rows.map(t => ({
+                id: t.id,
+                amount: t.monto,
+                description: t.descripcion,
+                date: t.fecha,
+                type: t.usuario_id_emisor === parseInt(userId) ? 'sent' : 'received',
+                otherUser: t.usuario_id_emisor === parseInt(userId)
+                    ? { id: t.usuario_id_receptor, name: t.nombre_receptor }
+                    : { id: t.usuario_id_emisor, name: t.nombre_emisor }
+            }));
+
+            return res.status(200).json(
+                transactions
+            );
+
         }
-
-        // Formatear las transacciones para la respuesta
-        const transactions = result.rows.map(t => ({
-            id: t.id,
-            amount: t.monto,
-            description: t.descripcion,
-            date: t.fecha,
-            type: t.usuario_id_emisor === parseInt(userId) ? 'sent' : 'received',
-            otherUser: t.usuario_id_emisor === parseInt(userId) 
-                ? { id: t.usuario_id_receptor, name: t.nombre_receptor }
-                : { id: t.usuario_id_emisor, name: t.nombre_emisor }
-        }));
-
-        return res.status(200).json(
-            transactions
-        );
 
     } catch (error) {
         console.error('Error al obtener transacciones:', error);
@@ -92,4 +117,4 @@ const getLastTransactions = async (req, res) => {
     }
 };
 
-module.exports = {transferFunds,getLastTransactions};
+module.exports = { transferFunds, getLastTransactions };

@@ -1,5 +1,6 @@
 CREATE TABLE usuarios (
-  id SERIAL PRIMARY KEY,       -- La columna 'id' es auto-incrementable
+  id SERIAL PRIMARY KEY,      
+  cbu VARCHAR(22) NOT NULL UNIQUE,
   nombre VARCHAR(100) NOT NULL,
   email VARCHAR(100) NOT NULL UNIQUE,
   contraseña VARCHAR(255) NOT NULL,

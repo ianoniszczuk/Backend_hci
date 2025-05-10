@@ -19,13 +19,27 @@ const registerUser = async (req, res) => {
         return res.status(400).json({ error: 'La contraseña debe tener al menos 6 caracteres' });
     }
 
+
     try {
         const result = await pool.query(
-            'INSERT INTO usuarios (nombre, email, contraseña ) VALUES ($1, $2, $3) RETURNING id,nombre,email',
-            [name, email, password]
+            'INSERT INTO usuarios (nombre,  email, contraseña ) VALUES ($1, $2,$3) RETURNING id,nombre,email,saldo',
+            [name,  email, password]
         );
 
-        const userData = result.rows[0];
+        const userId = result.rows[0].id
+
+        const cbu = String(userId).padStart(22, '0');
+
+        await pool.query(
+            'UPDATE usuarios SET cbu = $1 WHERE id = $2',
+            [cbu, userId]
+          );
+
+        const updateUser = await pool.query(
+            'SELECT id,cbu,nombre,email,saldo FROM usuarios WHERE id = $1',[userId]
+        );
+
+        const userData = updateUser.rows[0];
 
         console.log('Usuario registrado:', userData);
 
@@ -34,7 +48,8 @@ const registerUser = async (req, res) => {
             user: {
                 id : userData.id,
                 nombre: userData.nombre,
-                email: userData.email
+                email: userData.email,
+                saldo : userData.saldo
             }
         });
 
@@ -77,10 +92,11 @@ const loginUser = async (req, res) => {
                 message: 'Login exitoso' ,
 
                 user: {
-                    id: result.rows[0].id,
-                    nombre: result.rows[0].nombre,
-                    email: result.rows[0].email,
-                    saldo : result.rows[0].saldo
+                    id: userData.id,
+                    nombre: userData.nombre,
+                    email: userData.email,
+                    saldo : userData.saldo,
+                    cbu : userData.cbu
                 }
             
             });
